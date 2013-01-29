@@ -13,9 +13,10 @@ class RobotDemo : public SimpleRobot
 	RobotDrive myRobot; // robot drive system
 	Joystick left_jstick; // only joystick
 	Joystick right_jstick;
-
 	Jaguar motor_shooter;
-
+	Timer drive_timer;
+	Timer timer;
+	Timer trigger_timer;
 	static const float m_sensitivity = .25;
 	static const int NUM_JOYSTICK_BUTTONS = 16;
 	bool m_rightStickButtonState[(NUM_JOYSTICK_BUTTONS+1)];
@@ -28,7 +29,10 @@ public:
 		myRobot(1, 2),	// these must be initialized in the same order
 		left_jstick(1),		// as they are declared above.
 		right_jstick(2),
-		motor_shooter(3)
+		motor_shooter(3),
+		drive_timer(),
+		timer(),
+		trigger_timer()
 	{
 		myRobot.SetExpiration(0.1);
 	}
@@ -79,13 +83,89 @@ public:
 
 		myRobot.SetInvertedMotor(myRobot.kRearLeftMotor,true);
 		myRobot.SetInvertedMotor(myRobot.kRearRightMotor,true);
-		static int count_drive = 0;
+		drive_timer.Start();
+		timer.Start();
 		
-		while (IsOperatorControl())
+		bool current_trigger;
+		bool previous_trigger;
+		bool stable_trigger;
+		bool thirdState;
+		
+		unsigned int trigger_state = 0;
+//		unsigned int trigger_count = 0;
+		const double trigger_bounce_time_S = .1;  //this is in seconds//#fix change to a #define 
+		
+		while(IsOperatorControl())
 		{
-			if (count_drive > 10000){
+			previous_trigger = current_trigger;
+			current_trigger = right_jstick.GetTrigger();
+			
+			switch (trigger_state)
+			{
+				case 0:  //No Button Press 
+					//current_trigger = right_jstick.GetTrigger();					
+					if (current_trigger)
+					{
+						trigger_timer.Reset();
+						trigger_state = 1;
+					}
+					else
+					{
+						trigger_state = 0;
+					}
+					break;
+				case 1:
+					trigger_timer.Start();
+					trigger_state = 2;
+					break;
+				case 2:
+					if (trigger_timer.Get() > trigger_bounce_time_S)
+					{
+						trigger_timer.Stop();
+						trigger_timer.Reset();
+						trigger_state = 3;
+					}
+					else
+					{
+						trigger_state = 2;
+					}
+					
+					break;
+				case 3:
+					
+					stable_trigger = current_trigger;
+					if (previous_trigger != current_trigger)
+					{
+						trigger_state = 0;
+					}
+					else
+					{
+						
+						previous_trigger = current_trigger;
+					}
+				default:
+					trigger_state = 0;
+					break;
+			}
+			ds->PrintfLine(DriverStationLCD::kUser_Line1, "trigger_state", trigger_state);			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			//if (drive_timer.Get() > .1){
 
-				if (right_jstick.GetTrigger() == drive_style)
+
+				if (stable_trigger == drive_style)//(right_jstick.GetTrigger() == drive_style)
 				{
 					drive_style=false;
 					myRobot.TankDrive(left_jstick, right_jstick);
@@ -114,9 +194,8 @@ public:
 				}
 				
 				 */
-				count_drive=0;
-			}
-			count_drive++;
+				drive_timer.Reset();
+			//}
 
 			if(right_jstick.GetRawButton(2))
 			{
@@ -128,12 +207,13 @@ public:
 			}
 
 
-			static int count = 0;
-			if (count > 5000)
+			
+			if (timer.Get() > .005)
 			{
+
 				if(right_jstick.GetRawButton(8))
 				{
-					sensitivity-=.05;
+					sensitivity-=.005;
 					if(sensitivity > 10)
 					{
 						sensitivity = 10;
@@ -145,7 +225,7 @@ public:
 
 				if(right_jstick.GetRawButton(9))
 				{
-					sensitivity+=.05;
+					sensitivity+=.005;
 					if(sensitivity > 10)
 					{
 						sensitivity = 10;
@@ -153,12 +233,8 @@ public:
 					myRobot.SetSensitivity(sensitivity);
 					ds->PrintfLine(DriverStationLCD::kUser_Line4, "Sensitivity = %f", sensitivity);
 				}
-				count = 0;
+				timer.Reset();
 			}
-			count++;
-
-
-
 			ds->UpdateLCD();
 		}
 	}
