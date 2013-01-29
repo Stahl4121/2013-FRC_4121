@@ -143,6 +143,7 @@ public:
 						
 						previous_trigger = current_trigger;
 					}
+					break;
 				default:
 					trigger_state = 0;
 					break;
