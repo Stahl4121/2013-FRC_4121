@@ -1,5 +1,6 @@
 #include "WPILib.h"
 #include <PWM.h>
+#include <Joystick.h>
 //#include <Jaguar.h>
 /**
  * This is a demo program showing the use of the RobotBase class.
@@ -8,15 +9,25 @@
  * the driver station or the field controls.
  */ 
 
+#define NUM_BUTTONS (13)
+
 class RobotDemo : public SimpleRobot
 {
 	RobotDrive myRobot; // robot drive system
+	
 	Joystick left_jstick; // only joystick
 	Joystick right_jstick;
+	
 	Jaguar motor_shooter;
+	
 	Timer drive_timer;
 	Timer timer;
 	Timer trigger_timer;
+	Timer timer_one_ms;
+	
+	Servo camera_yaw_servo;
+	Servo camera_tilt_servo;
+	
 	static const float m_sensitivity = .25;
 	static const int NUM_JOYSTICK_BUTTONS = 16;
 	bool m_rightStickButtonState[(NUM_JOYSTICK_BUTTONS+1)];
@@ -32,7 +43,10 @@ public:
 		motor_shooter(3),
 		drive_timer(),
 		timer(),
-		trigger_timer()
+		trigger_timer(),
+		timer_one_ms(),
+		camera_yaw_servo(4),
+		camera_tilt_servo(5)
 	{
 		myRobot.SetExpiration(0.1);
 	}
@@ -47,18 +61,7 @@ public:
 		myRobot.SetSafetyEnabled(false);
 		myRobot.Drive(.2, 0.0); 	// drive forwards half speed
 		Wait(.2); 				//    for 2- seconds
-		myRobot.Drive(0.0, 0.0); 	// stop robot
-		Wait(.5);
-		myRobot.Drive(.2, .5);
-		Wait(.2);
-
-		printf("here 2");
-		myRobot.Drive(.2, 0.0); 	// drive forwards half speed
-		Wait(.2); 				//    for 2- seconds
-		myRobot.Drive(0.0, 0.0); 	// stop robot
-		Wait(.5);
-		myRobot.Drive(.2, .5);
-		Wait(.2);
+	
 
 		myRobot.Drive(0.0, 0.0);
 
@@ -73,9 +76,10 @@ public:
 		bool drive_style = true;
 
 		myRobot.SetSafetyEnabled(false);
-
-		DriverStationLCD *ds = DriverStationLCD::GetInstance();
 		myRobot.SetExpiration(5);
+		
+		DriverStationLCD *ds = DriverStationLCD::GetInstance();
+
 		float val = myRobot.GetExpiration();
 
 		ds->PrintfLine(DriverStationLCD::kUser_Line1, "Expiration Value: %d", val);
@@ -83,122 +87,127 @@ public:
 
 		myRobot.SetInvertedMotor(myRobot.kRearLeftMotor,true);
 		myRobot.SetInvertedMotor(myRobot.kRearRightMotor,true);
-		drive_timer.Start();
-		timer.Start();
 		
-		bool current_trigger;
-		bool previous_trigger;
+		timer_one_ms.Start();
+		
 		bool stable_trigger;
-		bool thirdState;
 		
-		unsigned int trigger_state = 0;
-//		unsigned int trigger_count = 0;
-		const double trigger_bounce_time_S = .1;  //this is in seconds//#fix change to a #define 
+		static unsigned short RJS_button_input_state[NUM_BUTTONS];
+		static bool RJS_stable_button_value[NUM_BUTTONS];
+		static unsigned short LJS_button_input_state[NUM_BUTTONS];
+		static bool LJS_stable_button_value[NUM_BUTTONS];
 		
 		while(IsOperatorControl())
 		{
-			previous_trigger = current_trigger;
-			current_trigger = right_jstick.GetTrigger();
-			
-			switch (trigger_state)
+			if (timer_one_ms.Get() == .1)
 			{
-				case 0:  //No Button Press 
-					//current_trigger = right_jstick.GetTrigger();					
-					if (current_trigger)
+				//right Joystick trigger
+				static unsigned short trigger_input_state = 0x0000;
+				trigger_input_state = (trigger_input_state << 1) | (right_jstick.GetTrigger()) | (0x1FFF);
+				if (trigger_input_state == 0x0FFF)
+				{
+					stable_trigger = true;
+				}
+				else
+				{
+					stable_trigger = false;
+				}
+				
+				//right joystick buttons
+
+
+				unsigned char button_count;
+				for ((button_count = 0); (button_count < NUM_BUTTONS); (button_count++))
+				{
+					RJS_button_input_state[button_count] = (RJS_button_input_state[button_count] << 1) | (right_jstick.GetRawButton(button_count)) | (0x1FFF);  //this mask might need to change
+					if (RJS_button_input_state[button_count] == 0x0FFF)
 					{
-						trigger_timer.Reset();
-						trigger_state = 1;
+						RJS_stable_button_value[button_count] = true;
 					}
 					else
 					{
-						trigger_state = 0;
-					}
-					break;
-				case 1:
-					trigger_timer.Start();
-					trigger_state = 2;
-					break;
-				case 2:
-					if (trigger_timer.Get() > trigger_bounce_time_S)
+						RJS_stable_button_value[button_count] = false;
+					}				
+				
+				}
+				//left joystick buttons
+
+				for ((button_count = 0); (button_count < NUM_BUTTONS); (button_count++))
+				{
+					LJS_button_input_state[button_count] = (LJS_button_input_state[button_count] << 1) | (left_jstick.GetRawButton(button_count)) | (0x1FFF);  //this mask might need to change
+					if (LJS_button_input_state[button_count] == 0x0FFF)
 					{
-						trigger_timer.Stop();
-						trigger_timer.Reset();
-						trigger_state = 3;
+						LJS_stable_button_value[button_count] = true;
 					}
 					else
 					{
-						trigger_state = 2;
-					}
-					
-					break;
-				case 3:
-					
-					stable_trigger = current_trigger;
-					if (previous_trigger != current_trigger)
-					{
-						trigger_state = 0;
-					}
-					else
-					{
-						
-						previous_trigger = current_trigger;
-					}
-					break;
-				default:
-					trigger_state = 0;
-					break;
+						LJS_stable_button_value[button_count] = false;
+					}				
+				}			
+				
+				
+				timer_one_ms.Reset();
 			}
-			ds->PrintfLine(DriverStationLCD::kUser_Line1, "trigger_state", trigger_state);			
 			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			//if (drive_timer.Get() > .1){
 
+		//Determin drive Style
+			if (stable_trigger == drive_style)//(right_jstick.GetTrigger() == drive_style)
+			{
+				drive_style = false;
+				myRobot.TankDrive(left_jstick, right_jstick);
+				Wait(0.001);// wait for a motor update time
+				
+			}
+			else 
+			{
+				drive_style = true;
+				myRobot.ArcadeDrive(right_jstick);
+				Wait(0.001);				// wait for a motor update time
+			}
 
-				if (stable_trigger == drive_style)//(right_jstick.GetTrigger() == drive_style)
+			if (drive_style = true)
+			{
+#warning no idea if the servo control code will work.
+
+				float camera_yaw_position = camera_yaw_servo.Get();
+				float camera_tilt_position = camera_tilt_servo.Get();
+				if (left_jstick.GetY() > 0)
 				{
-					drive_style=false;
-					myRobot.TankDrive(left_jstick, right_jstick);
-					Wait(0.001);// wait for a motor update time
+					camera_yaw_position += 0.01;
+				}
+				else if(left_jstick.GetY() < 0)
+				{
+					camera_yaw_position -= 0.01;
+				}
+				else
+				{
 					
 				}
-				else 
+	
+				if (left_jstick.GetX() > 0)
 				{
-					drive_style=true;
-					myRobot.ArcadeDrive(right_jstick);
-					Wait(0.001);				// wait for a motor update time
+					camera_tilt_position += 0.01;
 				}
+				else if(left_jstick.GetX() < 0)
+				{
+					camera_tilt_position -= 0.01;
+				}
+				else
+				{
+					
+				}				
+				camera_yaw_servo.Set(camera_yaw_position);
+				camera_tilt_servo.Set(camera_tilt_position);
 				
-				/*
-				 * if (right_jstick.GetTrigger() == drive_style)
-				{
-					drive_style=false;			
-					myRobot.TankDrive(left_jstick, right_jstick);
-					Wait(0.001);				// wait for a motor update time
-				}
-				else 
-				{
-					drive_style=true;
-					myRobot.ArcadeDrive(right_jstick);
-					Wait(0.001);				// wait for a motor update time
-				}
-				
-				 */
-				drive_timer.Reset();
-			//}
+			}
+			else
+			{
+#warning this should home the servo, it probably will not
+				camera_yaw_servo.SetAngle(0);
+				camera_tilt_servo.SetAngle(0);
+			}
 
-			if(right_jstick.GetRawButton(2))
+			if(RJS_stable_button_value[2])
 			{
 				motor_shooter.Set(.5);
 			}
@@ -208,34 +217,30 @@ public:
 			}
 
 
-			
-			if (timer.Get() > .005)
+
+			if(RJS_stable_button_value[8])
 			{
-
-				if(right_jstick.GetRawButton(8))
+				sensitivity-=.005;
+				if(sensitivity > 10)
 				{
-					sensitivity-=.005;
-					if(sensitivity > 10)
-					{
-						sensitivity = 10;
-					}
-
-					myRobot.SetSensitivity(sensitivity);
-					ds->PrintfLine(DriverStationLCD::kUser_Line4, "Sensitivity = %f", sensitivity);
+					sensitivity = 10;
 				}
 
-				if(right_jstick.GetRawButton(9))
-				{
-					sensitivity+=.005;
-					if(sensitivity > 10)
-					{
-						sensitivity = 10;
-					}
-					myRobot.SetSensitivity(sensitivity);
-					ds->PrintfLine(DriverStationLCD::kUser_Line4, "Sensitivity = %f", sensitivity);
-				}
-				timer.Reset();
+				myRobot.SetSensitivity(sensitivity);
+				ds->PrintfLine(DriverStationLCD::kUser_Line4, "Sensitivity = %f", sensitivity);
 			}
+
+			if(RJS_stable_button_value[9])
+			{
+				sensitivity+=.005;
+				if(sensitivity > 10)
+				{
+					sensitivity = 10;
+				}
+				myRobot.SetSensitivity(sensitivity);
+				ds->PrintfLine(DriverStationLCD::kUser_Line4, "Sensitivity = %f", sensitivity);
+			}
+			
 			ds->UpdateLCD();
 		}
 	}
