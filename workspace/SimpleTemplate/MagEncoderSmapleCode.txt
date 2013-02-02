@@ -1,0 +1,53 @@
+void OperatorControl(void)
+{
+	GetWatchdog().SetEnabled(false);
+	timeStart = 0.0;
+	timeEnd = 0.0;
+	avgPulseTime = 0.0;
+	pulseCounter = 0;
+	positionDegree = 0;
+	const UINT32 slot = 4;
+	char *c = NULL;
+	DigitalModule *dm = DigitalModule::GetInstance(slot);// (slot);		
+	DriverStationLCD *dsLCD = DriverStationLCD::GetInstance();
+	dm->AllocateDIO(1,true);
+	//dsLCD->UpdateLCD();
+		
+	while (IsOperatorControl())
+	{	
+		if(dm->GetDIO(1) == 1)
+		{
+			//start the timer and get the time
+			tim1.Start();
+			timeStart=tim1.Get();
+
+			while(dm->GetDIO(1) == 1) //repeat until there is a falling edge
+			{
+				Wait(.000001);  //Pause for 1usec
+			}
+			timeEnd=tim1.Get();
+			tim1.Stop(); //stop the timer
+			if(0 < (timeEnd - timeStart) < .000578)  //filter out noise
+			{
+				avgPulseTime += (timeEnd-timeStart); //sum up all of the pulses
+				pulseCounter++;
+			}
+		}
+		//looking to average 10 pulses together
+		if (pulseCounter == 10)
+		{
+			avgPulseTime /= pulseCounter;
+			avgPulseTime *= 1000000;
+			positionDegree = avgPulseTime * 360 / 578;
+			pulseCounter = 0;
+			//display on the screen
+			sprintf(c,"%03d",positionDegree);
+			dsLCD->Printf(dsLCD->kUser_Line4,1,c);
+			dsLCD->UpdateLCD();
+			tim1.Reset();
+			avgPulseTime = 0.0;
+			*c = NULL;
+		}	
+		Wait(.0000005);
+	}
+}
