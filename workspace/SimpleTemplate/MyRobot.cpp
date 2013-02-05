@@ -4,6 +4,10 @@
 
 class RobotDemo : public SimpleRobot
 {
+	float SensitivityCheck (Timer timer);
+		// returns the sensitivity of the robot and changes it to fit that sensitivity
+	
+	
 	RobotDrive myRobot; // robot drive system
 	Joystick left_jstick; // only joystick
 	Joystick right_jstick;
@@ -20,7 +24,7 @@ class RobotDemo : public SimpleRobot
 	Gyro gyro;
 	Servo camera_yaw_servo;
 	Servo camera_pitch_servo;
-	
+
 	static const float m_sensitivity = .25;
 	static const int NUM_JOYSTICK_BUTTONS = 16;
 	bool m_rightStickButtonState[(NUM_JOYSTICK_BUTTONS+1)];
@@ -92,12 +96,12 @@ public:
 		float accelerationY = 0.0;
 		float accelerationZ = 0.0;
 		myRobot.SetSafetyEnabled(false);
-		
+
 		DriverStationLCD *ds = DriverStationLCD::GetInstance();
 		DriverStation *station = DriverStation::GetInstance();
-		
+
 		Dashboard dashboard(station->GetUserStatusDataSem());
-		
+
 		ds->UpdateLCD();
 
 		myRobot.SetInvertedMotor(myRobot.kRearLeftMotor,true);
@@ -122,7 +126,7 @@ public:
 		dashboard.AddFloat(accelerationY);
 		dashboard.AddFloat(accelerationZ);
 		dashboard.Finalize();
-		
+
 		while(IsOperatorControl())
 		{
 			previous_trigger = current_trigger;
@@ -204,112 +208,119 @@ public:
 			}
 
 			drive_timer.Reset();
-			if (timer.Get() > .005)
+			sensitivity = SensitivityCheck();//timer);
+			ds->PrintfLine(DriverStationLCD::kUser_Line4, "Sensitivity = %f", sensitivity);
+
+			//Camera movement control rotate
+			//4 left, 5 right
+			if (left_jstick.GetRawButton(4))
 			{
-				if(right_jstick.GetRawButton(8))
-				{
-					sensitivity-=.005;
-					if(sensitivity > 10)
-					{
-						sensitivity = 10;
-					}
-
-					myRobot.SetSensitivity(sensitivity);
-					ds->PrintfLine(DriverStationLCD::kUser_Line4, "Sensitivity = %f", sensitivity);
-				}
-
-				if(right_jstick.GetRawButton(9))
-				{
-					sensitivity+=.005;
-					if(sensitivity > 10)
-					{
-						sensitivity = 10;
-					}
-					myRobot.SetSensitivity(sensitivity);
-					ds->PrintfLine(DriverStationLCD::kUser_Line4, "Sensitivity = %f", sensitivity);
-				}
-				timer.Reset();
-
-				//Camera movement control rotate
-				//4 left, 5 right
-				if (left_jstick.GetRawButton(4))
-				{
-					camera_yaw_servo.Set(camera_yaw_servo.Get()-0.01);
-				}
-				else if (left_jstick.GetRawButton(5))
-				{
-					camera_yaw_servo.Set(camera_yaw_servo.Get()+0.01);
-				}
-
-				//Camera movement control up/down
-				//2 down, 3 up
-				if (left_jstick.GetRawButton(3))
-				{
-					camera_pitch_servo.Set(camera_pitch_servo.Get()-0.01);
-				}
-				else if (left_jstick.GetRawButton(2))
-				{
-					camera_pitch_servo.Set(camera_pitch_servo.Get()+0.01);
-				}
-				else 
-				{
-					//	camera_yaw_servo.SetOffline();
-				}
-
-				//DoubleSolenoid control
-				//6 forward, 7 reverse, 10 don't move
-				if(left_jstick.GetRawButton(6))
-				{
-					dub_sol.Set(dub_sol.kForward);
-				}
-				else if(left_jstick.GetRawButton(7))
-				{
-					dub_sol.Set(dub_sol.kReverse);
-				}
-				else if(left_jstick.GetRawButton(10))
-				{
-					dub_sol.Set(dub_sol.kOff);
-				}
+				camera_yaw_servo.Set(camera_yaw_servo.Get()-0.01);
 			}
-
-			//Prints gyro
-			//Refreshes gyro twice every second
-			if(gyro_timer.Get() > .5)
+			else if (left_jstick.GetRawButton(5))
 			{
-				angle = gyro.GetAngle();
-				ds->PrintfLine(DriverStationLCD::kUser_Line5, "Gyro Value: %f", angle);
-
-				gyro_timer.Reset();
+				camera_yaw_servo.Set(camera_yaw_servo.Get()+0.01);
 			}
-			
-			//Prints accelerometer
-			//Refreshes accelerometer twice every second
-			if(accel_timer.Get() > .5)
+
+			//Camera movement control up/down
+			//2 down, 3 up
+			if (left_jstick.GetRawButton(3))
 			{
-				accelerationX = accel.GetAcceleration(accel.kAxis_X);
-				accelerationY = accel.GetAcceleration(accel.kAxis_Y);
-				accelerationZ = accel.GetAcceleration(accel.kAxis_Z);
-				ds->Printf(DriverStationLCD::kUser_Line4, 1, "X Axis: %f", accelerationX);//dont keep kUser_line4
-				ds->Printf(DriverStationLCD::kUser_Line5, 1, "Y Axis: %f",accelerationY);//dont keep kUser_Line5		
-				ds->Printf(DriverStationLCD::kUser_Line6, 1, "Z Axis: %f",accelerationZ);
-									
-				accel_timer.Reset();
+				camera_pitch_servo.Set(camera_pitch_servo.Get()-0.01);
 			}
-
-			//Prints if the battery is low or fine
-			//if the voltage is below 10 the battery is low
-			voltage = station->GetBatteryVoltage();
-			if(voltage<11){
-				ds->PrintfLine(DriverStationLCD::kUser_Line3, "Battery is low..");
-			}
-			else
+			else if (left_jstick.GetRawButton(2))
 			{
-				ds->PrintfLine(DriverStationLCD::kUser_Line3, "Battery is fine");
+				camera_pitch_servo.Set(camera_pitch_servo.Get()+0.01);
+			}
+			else 
+			{
+				//	camera_yaw_servo.SetOffline();
 			}
 
-			ds->UpdateLCD();	
-
+			//DoubleSolenoid control
+			//6 forward, 7 reverse, 10 don't move
+			if(left_jstick.GetRawButton(6))
+			{
+				dub_sol.Set(dub_sol.kForward);
+			}
+			else if(left_jstick.GetRawButton(7))
+			{
+				dub_sol.Set(dub_sol.kReverse);
+			}
+			else if(left_jstick.GetRawButton(10))
+			{
+				dub_sol.Set(dub_sol.kOff);
+			}
 		}
+
+		//Prints gyro
+		//Refreshes gyro twice every second
+		if(gyro_timer.Get() > .5)
+		{
+			angle = gyro.GetAngle();
+			ds->PrintfLine(DriverStationLCD::kUser_Line5, "Gyro Value: %f", angle);
+
+			gyro_timer.Reset();
+		}
+
+		//Prints accelerometer
+		//Refreshes accelerometer twice every second
+		if(accel_timer.Get() > .5)
+		{
+			accelerationX = accel.GetAcceleration(accel.kAxis_X);
+			accelerationY = accel.GetAcceleration(accel.kAxis_Y);
+			accelerationZ = accel.GetAcceleration(accel.kAxis_Z);
+			ds->Printf(DriverStationLCD::kUser_Line4, 1, "X Axis: %f", accelerationX);//dont keep kUser_line4
+			ds->Printf(DriverStationLCD::kUser_Line5, 1, "Y Axis: %f",accelerationY);//dont keep kUser_Line5		
+			ds->Printf(DriverStationLCD::kUser_Line6, 1, "Z Axis: %f",accelerationZ);
+
+			accel_timer.Reset();
+		}
+
+		//Prints if the battery is low or fine
+		//if the voltage is below 10 the battery is low
+		voltage = station->GetBatteryVoltage();
+		if(voltage<11){
+			ds->PrintfLine(DriverStationLCD::kUser_Line3, "Battery is low..");
+		}
+		else
+		{
+			ds->PrintfLine(DriverStationLCD::kUser_Line3, "Battery is fine");
+		}
+
+		ds->UpdateLCD();	
+
+	}
+	
+	//returns the sensitivity of the robot, and sets it 
+	float SensitivityCheck (void)//Timer timer)
+	{
+		float sensitivity = .25;
+		if (timer.Get() > .005)
+		{
+			if(right_jstick.GetRawButton(8))
+			{
+				sensitivity-=.005;
+				if(sensitivity > 10)
+				{
+					sensitivity = 10;
+				}
+
+				myRobot.SetSensitivity(sensitivity);
+			}
+
+			if(right_jstick.GetRawButton(9))
+			{
+				sensitivity+=.005;
+				if(sensitivity > 10)
+				{
+					sensitivity = 10;
+				}
+				myRobot.SetSensitivity(sensitivity);
+			}
+			timer.Reset();
+		}
+		return sensitivity;
 	}
 
 	/**
@@ -324,6 +335,7 @@ public:
 		}
 
 	}
+
 };
 
 START_ROBOT_CLASS(RobotDemo);
