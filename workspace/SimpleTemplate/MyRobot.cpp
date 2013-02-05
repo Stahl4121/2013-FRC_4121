@@ -14,13 +14,13 @@ class RobotDemo : public SimpleRobot
 	Timer timer;
 	Timer trigger_timer;
 	Timer gyro_timer;
-
+	Encoder encoder;
 	ADXL345_I2C accel;
 	Timer accel_timer;
 	Gyro gyro;
-
 	Servo camera_yaw_servo;
 	Servo camera_pitch_servo;
+	
 	static const float m_sensitivity = .25;
 	static const int NUM_JOYSTICK_BUTTONS = 16;
 	bool m_rightStickButtonState[(NUM_JOYSTICK_BUTTONS+1)];
@@ -44,11 +44,11 @@ public:
 		camera_yaw_servo(5),
 		camera_pitch_servo(6),
 		accel(1,accel.kRange_2G),
-		accel_timer()
+		accel_timer(),
+		encoder(1024,4096, false, encoder.k4X)
 	{
 		myRobot.SetExpiration(0.1);
 	}
-
 	/**
 	 * Drive left & right motors for 2 seconds then stop
 	 */
@@ -77,10 +77,12 @@ public:
 	}
 
 	/**
-	 * Runs the motors with arcade steering. 
+	 * Runs the motors with arcade or tank steering (the trigger toggles). 
 	 */
 	void OperatorControl(void)
 	{
+		encoder.Start();
+		encoder.Reset();
 		float voltage;
 		float sensitivity = .25;
 		bool drive_style = true;
@@ -90,7 +92,7 @@ public:
 		float accelerationY = 0.0;
 		float accelerationZ = 0.0;
 		myRobot.SetSafetyEnabled(false);
-
+		
 		DriverStationLCD *ds = DriverStationLCD::GetInstance();
 		DriverStation *station = DriverStation::GetInstance();
 		
@@ -115,9 +117,11 @@ public:
 		dashboard.AddFloat(voltage);
 		dashboard.AddFloat(sensitivity);
 		dashboard.AddDouble(angle);
-		//dashboard.AddFloat(accelerationX);
-		//dashboard.AddFloat(accelerationY);
-		//dashboard.AddFloat(accelerationZ);
+		dashboard.AddDouble(encoder.GetRate());	
+		dashboard.AddFloat(accelerationX);
+		dashboard.AddFloat(accelerationY);
+		dashboard.AddFloat(accelerationZ);
+		dashboard.Finalize();
 		
 		while(IsOperatorControl())
 		{
@@ -126,8 +130,7 @@ public:
 
 			switch (trigger_state)
 			{
-			case 0:                                                    //No Button Press 
-				//current_trigger = right_jstick.GetTrigger();					
+			case 0: //No Button Pressed
 				if (current_trigger)
 				{
 					trigger_timer.Reset();
@@ -172,12 +175,9 @@ public:
 				trigger_state = 0;
 				break;
 			}
-			ds->PrintfLine(DriverStationLCD::kUser_Line1, "trigger_state", trigger_state);			
+			ds->PrintfLine(DriverStationLCD::kUser_Line1, "trigger_state", trigger_state);
 
-			//if (drive_timer.Get() > .1){
-
-
-			if (stable_trigger == drive_style)                 //(right_jstick.GetTrigger() == drive_style)
+			if (stable_trigger == drive_style)                
 			{
 				drive_style=false;
 				myRobot.TankDrive(left_jstick, right_jstick);
@@ -191,7 +191,6 @@ public:
 				myRobot.ArcadeDrive(right_jstick);
 				Wait(0.001);				                  // wait for a motor update time
 			}
-
 
 			if(right_jstick.GetRawButton(2))
 			{
@@ -207,9 +206,6 @@ public:
 			drive_timer.Reset();
 			if (timer.Get() > .005)
 			{
-
-	/*uncomment, testing accelerometer
-	 	
 				if(right_jstick.GetRawButton(8))
 				{
 					sensitivity-=.005;
@@ -233,7 +229,6 @@ public:
 					ds->PrintfLine(DriverStationLCD::kUser_Line4, "Sensitivity = %f", sensitivity);
 				}
 				timer.Reset();
-	*/
 
 				//Camera movement control rotate
 				//4 left, 5 right
@@ -245,11 +240,6 @@ public:
 				{
 					camera_yaw_servo.Set(camera_yaw_servo.Get()+0.01);
 				}
-				else 
-				{
-					//	camera_yaw_servo.SetOffline();
-				}
-
 
 				//Camera movement control up/down
 				//2 down, 3 up
@@ -265,7 +255,6 @@ public:
 				{
 					//	camera_yaw_servo.SetOffline();
 				}
-
 
 				//DoubleSolenoid control
 				//6 forward, 7 reverse, 10 don't move
@@ -283,8 +272,6 @@ public:
 				}
 			}
 
-	/*uncomment, testing accelerometer
-	 		
 			//Prints gyro
 			//Refreshes gyro twice every second
 			if(gyro_timer.Get() > .5)
@@ -294,7 +281,6 @@ public:
 
 				gyro_timer.Reset();
 			}
-	*/
 			
 			//Prints accelerometer
 			//Refreshes accelerometer twice every second
@@ -306,17 +292,14 @@ public:
 				ds->Printf(DriverStationLCD::kUser_Line4, 1, "X Axis: %f", accelerationX);//dont keep kUser_line4
 				ds->Printf(DriverStationLCD::kUser_Line5, 1, "Y Axis: %f",accelerationY);//dont keep kUser_Line5		
 				ds->Printf(DriverStationLCD::kUser_Line6, 1, "Z Axis: %f",accelerationZ);
-				
-					
+									
 				accel_timer.Reset();
 			}
-
-
 
 			//Prints if the battery is low or fine
 			//if the voltage is below 10 the battery is low
 			voltage = station->GetBatteryVoltage();
-			if(voltage<10){
+			if(voltage<11){
 				ds->PrintfLine(DriverStationLCD::kUser_Line3, "Battery is low..");
 			}
 			else
