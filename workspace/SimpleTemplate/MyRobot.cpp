@@ -251,45 +251,45 @@ public:
 			{
 				dub_sol.Set(dub_sol.kOff);
 			}
+			
+
+			//Prints gyro
+			//Refreshes gyro twice every second
+			if(gyro_timer.Get() > .5)
+			{
+				angle = gyro.GetAngle();
+				ds->PrintfLine(DriverStationLCD::kUser_Line5, "Gyro Value: %f", angle);
+
+				gyro_timer.Reset();
+			}
+
+			//Prints accelerometer
+			//Refreshes accelerometer twice every second
+			if(accel_timer.Get() > .5)
+			{
+				accelerationX = accel.GetAcceleration(accel.kAxis_X);
+				accelerationY = accel.GetAcceleration(accel.kAxis_Y);
+				accelerationZ = accel.GetAcceleration(accel.kAxis_Z);
+				ds->Printf(DriverStationLCD::kUser_Line4, 1, "X Axis: %f", accelerationX);//dont keep kUser_line4
+				ds->Printf(DriverStationLCD::kUser_Line5, 1, "Y Axis: %f",accelerationY);//dont keep kUser_Line5		
+				ds->Printf(DriverStationLCD::kUser_Line6, 1, "Z Axis: %f",accelerationZ);
+
+				accel_timer.Reset();
+			}
+
+			//Prints if the battery is low or fine
+			//if the voltage is below 10 the battery is low
+			voltage = station->GetBatteryVoltage();
+			if(voltage<11){
+				ds->PrintfLine(DriverStationLCD::kUser_Line3, "Battery is low..");
+			}
+			else
+			{
+				ds->PrintfLine(DriverStationLCD::kUser_Line3, "Battery is fine");
+			}
+
+			ds->UpdateLCD();	
 		}
-
-		//Prints gyro
-		//Refreshes gyro twice every second
-		if(gyro_timer.Get() > .5)
-		{
-			angle = gyro.GetAngle();
-			ds->PrintfLine(DriverStationLCD::kUser_Line5, "Gyro Value: %f", angle);
-
-			gyro_timer.Reset();
-		}
-
-		//Prints accelerometer
-		//Refreshes accelerometer twice every second
-		if(accel_timer.Get() > .5)
-		{
-			accelerationX = accel.GetAcceleration(accel.kAxis_X);
-			accelerationY = accel.GetAcceleration(accel.kAxis_Y);
-			accelerationZ = accel.GetAcceleration(accel.kAxis_Z);
-			ds->Printf(DriverStationLCD::kUser_Line4, 1, "X Axis: %f", accelerationX);//dont keep kUser_line4
-			ds->Printf(DriverStationLCD::kUser_Line5, 1, "Y Axis: %f",accelerationY);//dont keep kUser_Line5		
-			ds->Printf(DriverStationLCD::kUser_Line6, 1, "Z Axis: %f",accelerationZ);
-
-			accel_timer.Reset();
-		}
-
-		//Prints if the battery is low or fine
-		//if the voltage is below 10 the battery is low
-		voltage = station->GetBatteryVoltage();
-		if(voltage<11){
-			ds->PrintfLine(DriverStationLCD::kUser_Line3, "Battery is low..");
-		}
-		else
-		{
-			ds->PrintfLine(DriverStationLCD::kUser_Line3, "Battery is fine");
-		}
-
-		ds->UpdateLCD();	
-
 	}
 	
 	//returns the sensitivity of the robot, and sets it 
