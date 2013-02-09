@@ -7,6 +7,7 @@ class RobotDemo: public SimpleRobot {
 	Joystick right_jstick;
 	Jaguar motor_shooter_front; //adding extra motors for the shooter
 	Jaguar motor_shooter_back;
+	Jaguar hopper_loader_arm;
 	DoubleSolenoid dub_sol;
 	Timer drive_timer; //adding timers to control how fast the buttons register
 	Timer timer;
@@ -36,11 +37,20 @@ public:
 				right_jstick(2),
 				motor_shooter_front(3),
 				motor_shooter_back(4),
+				hopper_loader_arm(8),
 				dub_sol(1, 2), //(forwardChannel,reverseChannel)
-				drive_timer(), timer(), trigger_timer(), gyro_timer(),
+				drive_timer(), 
+				timer(), 
+				trigger_timer(), 
+				gyro_timer(),
 				encoder(1024, 4096, false, encoder.k4X),
-				accel(1, accel.kRange_2G), accel_timer(), gyro(2),
-				camera_yaw_servo(5), camera_pitch_servo(6), hopper_yaw_servo(7) {
+				accel(1, accel.kRange_2G), 
+				accel_timer(), 
+				gyro(2),
+				camera_yaw_servo(5), 
+				camera_pitch_servo(6), 
+				hopper_yaw_servo(7) 
+	{
 		myRobot.SetExpiration(0.1);
 	}
 	
@@ -48,11 +58,10 @@ public:
 	 * Runs the shooter at 80% until taken off of autonomous
 	 * Must manually aim
 	 */
-	void Autonomous(void) {
-
+	void Autonomous(void) 
+	{
 		motor_shooter_front.Set(.8);
 		motor_shooter_back.Set(.8);
-
 	}
 
 	/**
@@ -172,11 +181,14 @@ public:
 			ds->PrintfLine(DriverStationLCD::kUser_Line2, "Sensitivity = %f",
 					sensitivity);
 			//hopper server moving .25 of a turn and back
-			if (right_jstick.GetRawButton(4)) {
-				hopper_yaw_servo.Set(hopper_yaw_servo.Get() - 0.01);
+			if (right_jstick.GetRawButton(3)) {
+				//hopper_yaw_servo.Set(hopper_yaw_servo.Get() - 0.01);
+				hopper_loader_arm.Set(1);				
 				//hopper_yaw_servo.SetAngle(90);
-			} else if (hopper_yaw_servo.Get() >= -0.25 && hopper_yaw_servo.Get() <= 0.25) {
-				hopper_yaw_servo.Set(hopper_yaw_servo.Get() + 0.01);
+			} else// if (hopper_yaw_servo.Get() >= -0.25 && hopper_yaw_servo.Get() <= 0.25) {
+			{
+				//	hopper_yaw_servo.Set(hopper_yaw_servo.Get() + 0.01);
+				hopper_loader_arm.Disable();		
 			}
 
 			//Camera movement control rotate
