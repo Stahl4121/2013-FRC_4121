@@ -1,7 +1,26 @@
 #include "WPILib.h"
 #include <PWM.h>
 
+#define port1 1
+#define port2 2
+#define motor1 2
+#define motor2 1
+#define motor3 3
+#define motor4 4
+#define hopper 8
+#define solChan1 1
+#define solChan2 2
+#define gyroChan 2
+#define camYawServo 5
+#define camPitchServo 6
+#define define "winning"
+#define winning "qwop, giant pandas, and defining...and Logan (just kidding(or am I!?(yes I am(??))))"
+#define shrink_wrap "use next year"
+
 class RobotDemo: public SimpleRobot {
+	
+	
+	
 	RobotDrive myRobot; // robot drive system
 	Joystick left_jstick; // only joystick
 	Joystick right_jstick;
@@ -19,7 +38,8 @@ class RobotDemo: public SimpleRobot {
 	Gyro gyro;
 	Servo camera_yaw_servo;
 	Servo camera_pitch_servo;
-	Servo hopper_yaw_servo;
+	Compressor compressor;
+	//Servo hopper_yaw_servo;
 
 	static const float m_sensitivity = .25;
 	static const int NUM_JOYSTICK_BUTTONS = 16;
@@ -32,13 +52,13 @@ public:
 	// returns the sensitivity of the robot and changes it to fit that sensitivity
 
 	RobotDemo(void) :
-				myRobot(2, 1), //these must be initialized in the same order
-				left_jstick(1), //as they are declared above.
-				right_jstick(2),
-				motor_shooter_front(3),
-				motor_shooter_back(4),
-				hopper_loader_arm(8),
-				dub_sol(1, 2), //(forwardChannel,reverseChannel)
+				myRobot(motor1, motor2), //these must be initialized in the same order
+				left_jstick(port1), //as they are declared above.
+				right_jstick(port2),
+				motor_shooter_front(motor3),
+				motor_shooter_back(motor4),
+				hopper_loader_arm(hopper),
+				dub_sol(solChan1, solChan2), //(forwardChannel,reverseChannel)
 				drive_timer(), 
 				timer(), 
 				trigger_timer(), 
@@ -46,10 +66,11 @@ public:
 				encoder(1024, 4096, false, encoder.k4X),
 				accel(1, accel.kRange_2G), 
 				accel_timer(), 
-				gyro(2),
-				camera_yaw_servo(5), 
-				camera_pitch_servo(6), 
-				hopper_yaw_servo(7) 
+				gyro(gyroChan),
+				camera_yaw_servo(camYawServo), 
+				camera_pitch_servo(camPitchServo),
+				compressor(8,1)
+				//hopper_yaw_servo(7) 
 	{
 		myRobot.SetExpiration(0.1);
 	}
@@ -91,7 +112,8 @@ public:
 		timer.Start();
 		gyro_timer.Start();
 		accel_timer.Start();
-
+		compressor.Start();
+		
 		bool current_trigger;
 		bool previous_trigger;
 		bool stable_trigger;
@@ -150,8 +172,8 @@ public:
 				trigger_state = 0;
 				break;
 			}
-			ds->PrintfLine(DriverStationLCD::kUser_Line1, "trigger_state",
-					trigger_state);
+			ds->PrintfLine(DriverStationLCD::kUser_Line1, "trigger_state %d",
+					compressor.GetPressureSwitchValue());
 
 			if (stable_trigger == drive_style) {
 				drive_style = false;
@@ -218,7 +240,7 @@ public:
 			} else if (left_jstick.GetRawButton(10)) {
 				dub_sol.Set(dub_sol.kOff);
 			}
-
+			
 			//Prints gyro
 			//Refreshes gyro twice every second
 			if (gyro_timer.Get() > .5) {
@@ -244,7 +266,7 @@ public:
 
 				accel_timer.Reset();
 			}
-
+			
 			//Prints if the battery is low or fine
 			//if the voltage is below 10 the battery is low
 			voltage = station->GetBatteryVoltage();
@@ -253,8 +275,7 @@ public:
 						"Battery is low..");
 			} else {
 				ds->PrintfLine(DriverStationLCD::kUser_Line3, "Battery is fine");
-			}
-
+			}			
 			ds->UpdateLCD();
 		}
 	}
