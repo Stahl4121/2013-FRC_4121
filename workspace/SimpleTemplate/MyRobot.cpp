@@ -10,12 +10,7 @@
 #define hopper 8
 #define solChan1 1
 #define solChan2 2
-#define gyroChan 2
-#define camYawServo 5
-#define camPitchServo 6
-#define define "winning"
-#define winning "qwop, giant pandas, and defining...and Logan (just kidding(or am I!?(yes I am(??))))"
-#define shrink_wrap "use next year"
+
 
 class RobotDemo: public SimpleRobot {
 	
@@ -31,15 +26,7 @@ class RobotDemo: public SimpleRobot {
 	Timer drive_timer; //adding timers to control how fast the buttons register
 	Timer timer;
 	Timer trigger_timer;
-	Timer gyro_timer;
-	Encoder encoder;
-	ADXL345_I2C accel;
-	Timer accel_timer;
-	Gyro gyro;
-	Servo camera_yaw_servo;
-	Servo camera_pitch_servo;
 	Compressor compressor;
-	//Servo hopper_yaw_servo;
 
 	static const float m_sensitivity = .25;
 	static const int NUM_JOYSTICK_BUTTONS = 16;
@@ -50,7 +37,10 @@ public:
 
 	float SensitivityCheck(Timer timer);
 	// returns the sensitivity of the robot and changes it to fit that sensitivity
-
+	void ArcadeMovement(float move, float rotate);
+	void TankMovement(float left, float right);
+	
+	
 	RobotDemo(void) :
 				myRobot(motor1, motor2), //these must be initialized in the same order
 				left_jstick(port1), //as they are declared above.
@@ -62,17 +52,9 @@ public:
 				drive_timer(), 
 				timer(), 
 				trigger_timer(), 
-				gyro_timer(),
-				encoder(1024, 4096, false, encoder.k4X),
-				accel(1, accel.kRange_2G), 
-				accel_timer(), 
-				gyro(gyroChan),
-				camera_yaw_servo(camYawServo), 
-				camera_pitch_servo(camPitchServo),
-				compressor(8,1)
-				//hopper_yaw_servo(7) 
+				compressor(8,7)
 	{
-		myRobot.SetExpiration(0.1);
+		myRobot.SetExpiration(0.1); //Leave in, no idea what it does
 	}
 	
 	/*
@@ -81,20 +63,23 @@ public:
 	 */
 	void Autonomous(void) 
 	{
-		motor_shooter_front.Set(.8);
-		motor_shooter_back.Set(.8);
+		dub_sol.Set(dub_sol.kForward);// Reverses Solenoid
+		dub_sol.Set(dub_sol.kOff);    // Turns Solenoid Off
+		compressor.Start();//Starts Compressor
+		
+		motor_shooter_front.Set(.8);//Runs Front Motor
+		motor_shooter_back.Set(.8);//Runs Back Motor
+		hopper_loader_arm.Set(1);//Runs Loader Arm
+
 	}
 
 	/**
 	 * Runs the motors with arcade or tank steering (the trigger toggles). 
 	 */
 	void OperatorControl(void) {
-		encoder.Start();
-		encoder.Reset();
 		float voltage;
 		float sensitivity = .25;
 		bool drive_style = true;
-		gyro.Reset();
 		double angle = 0.0;
 		float accelerationX = 0.0;
 		float accelerationY = 0.0;
@@ -108,10 +93,8 @@ public:
 
 		myRobot.SetInvertedMotor(myRobot.kRearLeftMotor, true);
 		myRobot.SetInvertedMotor(myRobot.kRearRightMotor, true);
-		drive_timer.Start();
 		timer.Start();
-		gyro_timer.Start();
-		accel_timer.Start();
+		drive_timer.Start();
 		compressor.Start();
 		
 		bool current_trigger;
@@ -124,14 +107,14 @@ public:
 		dashboard.AddFloat(voltage);
 		dashboard.AddFloat(sensitivity);
 		dashboard.AddDouble(angle);
-		dashboard.AddDouble(encoder.GetRate());
 		dashboard.AddDouble(accelerationX);
 		dashboard.AddDouble(accelerationY);
 		dashboard.AddDouble(accelerationZ);
 		dashboard.Finalize();
 
 		while (IsOperatorControl()) {
-			previous_trigger = current_trigger;
+
+  		previous_trigger = current_trigger;
 			current_trigger = right_jstick.GetTrigger();
 
 			//used to toggle the drive types
@@ -173,64 +156,56 @@ public:
 				break;
 			}
 			ds->PrintfLine(DriverStationLCD::kUser_Line1, "trigger_state %d",
-					compressor.GetPressureSwitchValue());
+					stable_trigger);
 
-			if (stable_trigger == drive_style) {
+//			stable_trigger = right_jstick.GetTrigger();
+			
+			if (stable_trigger == drive_style) 
+			{
 				drive_style = false;
 				myRobot.TankDrive(left_jstick, right_jstick);
-				Wait(0.001); // wait for a motor update time
-				camera_yaw_servo.SetAngle(0);
-				camera_pitch_servo.SetAngle(0);
-			} else {
+			}
+			else
+			{
 				drive_style = true;
 				myRobot.ArcadeDrive(right_jstick);
 				Wait(0.001); // wait for a motor update time
 			}
-
+			
+			drive_timer.Reset();
+			
 			//runs the shooter motors
 			if (right_jstick.GetRawButton(2)) {
 				motor_shooter_front.Set(.8);
 				motor_shooter_back.Set(.8);
-			} else {
+			} 
+			else if (left_jstick.GetRawButton(2)) {
+				motor_shooter_front.Set(.3);
+				motor_shooter_back.Set(.3);
+			}			
+			else {
 				motor_shooter_front.Disable();
 				motor_shooter_back.Disable();
 			}
-
 			drive_timer.Reset();
 
 			//sets the sensitivity
 			sensitivity = SensitivityCheck();
 			ds->PrintfLine(DriverStationLCD::kUser_Line2, "Sensitivity = %f",
 					sensitivity);
+			
 			//hopper server moving .25 of a turn and back
-			if (right_jstick.GetRawButton(3)) {
-				//hopper_yaw_servo.Set(hopper_yaw_servo.Get() - 0.01);
+			if (right_jstick.GetRawButton(3)
+				|| left_jstick.GetRawButton(3)
+				) 
+			{
 				hopper_loader_arm.Set(1);				
-				//hopper_yaw_servo.SetAngle(90);
 			} else// if (hopper_yaw_servo.Get() >= -0.25 && hopper_yaw_servo.Get() <= 0.25) {
 			{
-				//	hopper_yaw_servo.Set(hopper_yaw_servo.Get() + 0.01);
 				hopper_loader_arm.Disable();		
 			}
 
-			//Camera movement control rotate
-			//4 left, 5 right
-			if (left_jstick.GetRawButton(4)) {
-				camera_yaw_servo.Set(camera_yaw_servo.Get() - 0.01);
-			} else if (left_jstick.GetRawButton(5)) {
-				camera_yaw_servo.Set(camera_yaw_servo.Get() + 0.01);
-			}
-
-			//Camera movement control up/down
-			//2 down, 3 up
-			if (left_jstick.GetRawButton(3)) {
-				camera_pitch_servo.Set(camera_pitch_servo.Get() - 0.01);
-			} else if (left_jstick.GetRawButton(2)) {
-				camera_pitch_servo.Set(camera_pitch_servo.Get() + 0.01);
-			} else {
-				//	camera_yaw_servo.SetOffline();
-			}
-
+			
 			//DoubleSolenoid control
 			//6 forward, 7 reverse, 10 don't move
 			if (left_jstick.GetRawButton(6)) {
@@ -239,32 +214,6 @@ public:
 				dub_sol.Set(dub_sol.kReverse);
 			} else if (left_jstick.GetRawButton(10)) {
 				dub_sol.Set(dub_sol.kOff);
-			}
-			
-			//Prints gyro
-			//Refreshes gyro twice every second
-			if (gyro_timer.Get() > .5) {
-				angle = gyro.GetAngle();
-				ds->PrintfLine(DriverStationLCD::kUser_Line2, "Gyro Value: %f",
-						angle);
-
-				gyro_timer.Reset();
-			}
-
-			//Prints accelerometer
-			//Refreshes accelerometer twice every second
-			if (accel_timer.Get() > .5) {
-				accelerationX = accel.GetAcceleration(accel.kAxis_X);
-				accelerationY = accel.GetAcceleration(accel.kAxis_Y);
-				accelerationZ = accel.GetAcceleration(accel.kAxis_Z);
-				ds->Printf(DriverStationLCD::kUser_Line4, 1, "X Axis: %f",
-						accelerationX);//dont keep kUser_line4
-				ds->Printf(DriverStationLCD::kUser_Line5, 1, "Y Axis: %f",
-						accelerationY);//dont keep kUser_Line5		
-				ds->Printf(DriverStationLCD::kUser_Line6, 1, "Z Axis: %f",
-						accelerationZ);
-
-				accel_timer.Reset();
 			}
 			
 			//Prints if the battery is low or fine
