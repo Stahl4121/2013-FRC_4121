@@ -128,6 +128,7 @@ public:
 				}
 				break;
 			case 1:
+				trigger_timer.Reset();
 				trigger_timer.Start();
 				trigger_state = 2;
 				break;
