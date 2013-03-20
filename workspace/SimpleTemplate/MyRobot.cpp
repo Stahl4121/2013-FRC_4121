@@ -1,6 +1,7 @@
 #include "WPILib.h"
 #include <PWM.h>
 
+<<<<<<< HEAD
 #define port1 1
 #define port2 2
 #define motor1 2
@@ -12,10 +13,9 @@
 #define solChan2 2
 
 
+=======
+>>>>>>> parent of a506b41... 2-16-2013 Morning
 class RobotDemo: public SimpleRobot {
-	
-	
-	
 	RobotDrive myRobot; // robot drive system
 	Joystick left_jstick; // only joystick
 	Joystick right_jstick;
@@ -26,7 +26,18 @@ class RobotDemo: public SimpleRobot {
 	Timer drive_timer; //adding timers to control how fast the buttons register
 	Timer timer;
 	Timer trigger_timer;
+<<<<<<< HEAD
 	Compressor compressor;
+=======
+	Timer gyro_timer;
+	Encoder encoder;
+	ADXL345_I2C accel;
+	Timer accel_timer;
+	Gyro gyro;
+	Servo camera_yaw_servo;
+	Servo camera_pitch_servo;
+	Servo hopper_yaw_servo;
+>>>>>>> parent of a506b41... 2-16-2013 Morning
 
 	static const float m_sensitivity = .25;
 	static const int NUM_JOYSTICK_BUTTONS = 16;
@@ -42,17 +53,28 @@ public:
 	
 	
 	RobotDemo(void) :
-				myRobot(motor1, motor2), //these must be initialized in the same order
-				left_jstick(port1), //as they are declared above.
-				right_jstick(port2),
-				motor_shooter_front(motor3),
-				motor_shooter_back(motor4),
-				hopper_loader_arm(hopper),
-				dub_sol(solChan1, solChan2), //(forwardChannel,reverseChannel)
+				myRobot(2, 1), //these must be initialized in the same order
+				left_jstick(1), //as they are declared above.
+				right_jstick(2),
+				motor_shooter_front(3),
+				motor_shooter_back(4),
+				hopper_loader_arm(8),
+				dub_sol(1, 2), //(forwardChannel,reverseChannel)
 				drive_timer(), 
 				timer(), 
 				trigger_timer(), 
+<<<<<<< HEAD
 				compressor(8,7)
+=======
+				gyro_timer(),
+				encoder(1024, 4096, false, encoder.k4X),
+				accel(1, accel.kRange_2G), 
+				accel_timer(), 
+				gyro(2),
+				camera_yaw_servo(5), 
+				camera_pitch_servo(6), 
+				hopper_yaw_servo(7) 
+>>>>>>> parent of a506b41... 2-16-2013 Morning
 	{
 		myRobot.SetExpiration(0.1); //Leave in, no idea what it does
 	}
@@ -94,9 +116,15 @@ public:
 		myRobot.SetInvertedMotor(myRobot.kRearLeftMotor, true);
 		myRobot.SetInvertedMotor(myRobot.kRearRightMotor, true);
 		timer.Start();
+<<<<<<< HEAD
 		drive_timer.Start();
 		compressor.Start();
 		
+=======
+		gyro_timer.Start();
+		accel_timer.Start();
+
+>>>>>>> parent of a506b41... 2-16-2013 Morning
 		bool current_trigger;
 		bool previous_trigger;
 		bool stable_trigger;
@@ -156,8 +184,13 @@ public:
 				trigger_state = 0;
 				break;
 			}
+<<<<<<< HEAD
 			ds->PrintfLine(DriverStationLCD::kUser_Line1, "trigger_state %d",
 					stable_trigger);
+=======
+			ds->PrintfLine(DriverStationLCD::kUser_Line1, "trigger_state",
+					trigger_state);
+>>>>>>> parent of a506b41... 2-16-2013 Morning
 
 //			stable_trigger = right_jstick.GetTrigger();
 			
@@ -216,7 +249,37 @@ public:
 			} else if (left_jstick.GetRawButton(10)) {
 				dub_sol.Set(dub_sol.kOff);
 			}
+<<<<<<< HEAD
 			
+=======
+
+			//Prints gyro
+			//Refreshes gyro twice every second
+			if (gyro_timer.Get() > .5) {
+				angle = gyro.GetAngle();
+				ds->PrintfLine(DriverStationLCD::kUser_Line2, "Gyro Value: %f",
+						angle);
+
+				gyro_timer.Reset();
+			}
+
+			//Prints accelerometer
+			//Refreshes accelerometer twice every second
+			if (accel_timer.Get() > .5) {
+				accelerationX = accel.GetAcceleration(accel.kAxis_X);
+				accelerationY = accel.GetAcceleration(accel.kAxis_Y);
+				accelerationZ = accel.GetAcceleration(accel.kAxis_Z);
+				ds->Printf(DriverStationLCD::kUser_Line4, 1, "X Axis: %f",
+						accelerationX);//dont keep kUser_line4
+				ds->Printf(DriverStationLCD::kUser_Line5, 1, "Y Axis: %f",
+						accelerationY);//dont keep kUser_Line5		
+				ds->Printf(DriverStationLCD::kUser_Line6, 1, "Z Axis: %f",
+						accelerationZ);
+
+				accel_timer.Reset();
+			}
+
+>>>>>>> parent of a506b41... 2-16-2013 Morning
 			//Prints if the battery is low or fine
 			//if the voltage is below 10 the battery is low
 			voltage = station->GetBatteryVoltage();
@@ -225,7 +288,8 @@ public:
 						"Battery is low..");
 			} else {
 				ds->PrintfLine(DriverStationLCD::kUser_Line3, "Battery is fine");
-			}			
+			}
+
 			ds->UpdateLCD();
 		}
 	}
